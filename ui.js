@@ -6,6 +6,7 @@ class UIManager {
         this.vibrateEnabled = true;
         this.graphicsQuality = 'high'; // 'low', 'medium', 'high'
         this.lang = 'tr'; // 'tr' veya 'en'
+        this.pendingPaymentPack = null;
         
         // DOM Elementleri
         this.screens = {};
@@ -49,6 +50,7 @@ class UIManager {
                 newHighScore: 'YENİ EN YÜKSEK SKOR!',
                 btnRetry: 'TEKRAR DENE',
                 btnGameOverMain: 'ANA MENÜ',
+                btnRevive: 'ANAHATAR KULLAN VE DEVAM ET ({val})',
                 shopEquipped: 'KUŞANILDI',
                 shopEquip: 'KUŞAN',
                 buySuccess: 'Kostüm başarıyla satın alındı!',
@@ -56,7 +58,20 @@ class UIManager {
                 buyNoCoins: 'Yetersiz altın!',
                 buyUnlocked: 'Zaten kilidi açık!',
                 resetConfirm: 'Tüm ilerlemeniz, altınlarınız ve rekorlarınız silinecek. Emin misiniz?',
-                resetAlert: 'Tüm veriler sıfırlandı.'
+                resetAlert: 'Tüm veriler sıfırlandı.',
+                tabKeys: 'ANAHTARLAR',
+                lblReviveAd: 'REKLAM İZLE VE CANLAN',
+                paymentTitle: 'SİBER SATIN ALIM',
+                paymentConfirm: 'ÖDEMEYİ ONAYLA',
+                paymentCancel: 'İPTAL ET',
+                paymentSuccess: 'Siber satın alım başarılı! {val} Anahtar eklendi.',
+                adStatusWatching: 'Siber Reklam İzleniyor... Lütfen bekleyin.',
+                adStatusFinished: 'Reklam bitti! Canlanma hakkı kazanıldı.',
+                keyPack1: '1 Canlandırma Anahtarı',
+                keyPack5: '5 Canlandırma Anahtarı',
+                keyPack10: '10 Canlandırma Anahtarı',
+                keyPack100: '100 Canlandırma Anahtarı',
+                keyPackDesc: 'Ölünce kaldığınız yerden devam etmenizi sağlar.'
             },
             en: {
                 logoUpper: 'GRAVITY',
@@ -92,6 +107,7 @@ class UIManager {
                 newHighScore: 'NEW HIGH SCORE!',
                 btnRetry: 'RETRY',
                 btnGameOverMain: 'MAIN MENU',
+                btnRevive: 'USE KEY AND CONTINUE ({val})',
                 shopEquipped: 'EQUIPPED',
                 shopEquip: 'EQUIP',
                 buySuccess: 'Skin purchased successfully!',
@@ -99,7 +115,20 @@ class UIManager {
                 buyNoCoins: 'Not enough coins!',
                 buyUnlocked: 'Already unlocked!',
                 resetConfirm: 'All your progress, coins and highscores will be deleted. Are you sure?',
-                resetAlert: 'All data has been reset.'
+                resetAlert: 'All data has been reset.',
+                tabKeys: 'KEYS',
+                lblReviveAd: 'WATCH AD AND REVIVE',
+                paymentTitle: 'CYBER PURCHASE',
+                paymentConfirm: 'CONFIRM PAYMENT',
+                paymentCancel: 'CANCEL',
+                paymentSuccess: 'Cyber purchase successful! {val} Keys added.',
+                adStatusWatching: 'Watching Cyber Ad... Please wait.',
+                adStatusFinished: 'Ad completed! Revive reward granted.',
+                keyPack1: '1 Revive Key',
+                keyPack5: '5 Revive Keys',
+                keyPack10: '10 Revive Keys',
+                keyPack100: '100 Revive Keys',
+                keyPackDesc: 'Allows you to continue from where you died.'
             }
         };
         
@@ -120,7 +149,7 @@ class UIManager {
 
     cacheDOM() {
         // Ekranlar
-        const screenIds = ['main-menu', 'shop-menu', 'settings-menu', 'pause-menu', 'game-over-menu'];
+        const screenIds = ['main-menu', 'shop-menu', 'settings-menu', 'pause-menu', 'game-over-menu', 'ad-screen-overlay', 'payment-modal-overlay'];
         screenIds.forEach(id => {
             this.screens[id] = document.getElementById(id);
         });
@@ -142,8 +171,13 @@ class UIManager {
             pauseQuit: document.getElementById('btn-pause-quit'),
             retry: document.getElementById('btn-retry'),
             gameOverMain: document.getElementById('btn-game-over-main'),
+            revive: document.getElementById('btn-revive'),
+            reviveAd: document.getElementById('btn-revive-ad'),
+            confirmPayment: document.getElementById('btn-confirm-payment'),
+            cancelPayment: document.getElementById('btn-cancel-payment'),
             tabSkins: document.getElementById('tab-skins'),
-            tabTrails: document.getElementById('tab-trails')
+            tabTrails: document.getElementById('tab-trails'),
+            tabKeys: document.getElementById('tab-keys')
         };
 
         // Girdiler / Ayarlar
@@ -161,10 +195,17 @@ class UIManager {
             shopCoins: document.getElementById('val-shop-coins'),
             hudScore: document.getElementById('val-hud-score'),
             hudCoins: document.getElementById('val-hud-coins'),
+            hudKeys: document.getElementById('val-hud-keys'),
             overScore: document.getElementById('val-over-score'),
             overCoins: document.getElementById('val-over-coins'),
             newHighscore: document.getElementById('new-highscore-badge'),
-            shopContainer: document.getElementById('shop-items-container')
+            shopContainer: document.getElementById('shop-items-container'),
+            adCountdown: document.getElementById('ad-countdown'),
+            adProgressBar: document.getElementById('ad-progress-bar'),
+            adStatus: document.getElementById('ad-status'),
+            paymentTitle: document.getElementById('payment-title'),
+            paymentDesc: document.getElementById('payment-desc'),
+            paymentPrice: document.getElementById('payment-price')
         };
     }
 
@@ -218,6 +259,7 @@ class UIManager {
         document.querySelector('.shop-header h2').textContent = t.titleShop;
         this.buttons.tabSkins.textContent = t.tabSkins;
         this.buttons.tabTrails.textContent = t.tabTrails;
+        this.buttons.tabKeys.textContent = t.tabKeys;
         this.buttons.shopBack.textContent = t.btnBack;
 
         // HUD
@@ -252,6 +294,7 @@ class UIManager {
             window.gameAudio.init(); // Mobil için audio context tetikle
             this.showScreen(null); // Tüm UI ekranlarını kapat
             this.hudOverlay.classList.add('active');
+            this.updateHUDKeys();
             
             // Oyunu başlat
             if (window.gameInstance) {
@@ -334,6 +377,7 @@ class UIManager {
                 this.activeTab = 'skins';
                 this.buttons.tabSkins.classList.add('active');
                 this.buttons.tabTrails.classList.remove('active');
+                this.buttons.tabKeys.classList.remove('active');
                 this.playClickSound();
                 this.renderShopItems();
             }
@@ -344,6 +388,18 @@ class UIManager {
                 this.activeTab = 'trails';
                 this.buttons.tabTrails.classList.add('active');
                 this.buttons.tabSkins.classList.remove('active');
+                this.buttons.tabKeys.classList.remove('active');
+                this.playClickSound();
+                this.renderShopItems();
+            }
+        });
+
+        this.buttons.tabKeys.addEventListener('click', () => {
+            if (this.activeTab !== 'keys') {
+                this.activeTab = 'keys';
+                this.buttons.tabKeys.classList.add('active');
+                this.buttons.tabSkins.classList.remove('active');
+                this.buttons.tabTrails.classList.remove('active');
                 this.playClickSound();
                 this.renderShopItems();
             }
@@ -402,6 +458,33 @@ class UIManager {
             if (window.gameInstance) {
                 window.gameInstance.stop();
             }
+        });
+
+        this.buttons.revive.addEventListener('click', () => {
+            if (window.gameInstance && window.gameShop.useKey()) {
+                this.playClickSound();
+                this.vibrate(100);
+                this.showScreen(null);
+                this.hudOverlay.classList.add('active');
+                this.updateHUDKeys();
+                window.gameInstance.revive(); // Oyunu canlandır
+            }
+        });
+
+        this.buttons.reviveAd.addEventListener('click', () => {
+            this.playClickSound();
+            this.startSimulatedAd();
+        });
+
+        this.buttons.confirmPayment.addEventListener('click', () => {
+            this.playClickSound();
+            this.completeSimulatedPayment();
+        });
+
+        this.buttons.cancelPayment.addEventListener('click', () => {
+            this.playClickSound();
+            this.showScreen(null);
+            this.showScreen('shop-menu');
         });
     }
 
@@ -488,7 +571,7 @@ class UIManager {
 
                 container.appendChild(card);
             });
-        } else {
+        } else if (this.activeTab === 'trails') {
             // Kuyruk Efektlerini Listele
             const trails = window.gameShop.trails;
             const currentSkinDetails = window.gameShop.getActiveSkinDetails();
@@ -523,6 +606,40 @@ class UIManager {
                     this.handleTrailAction(trail.id);
                 });
 
+                container.appendChild(card);
+            });
+        } else if (this.activeTab === 'keys') {
+            // Anahtar Paketlerini Listele
+            const packs = [
+                { id: 'key_pack_1', name: t.keyPack1, cost: "5 TL", val: 1 },
+                { id: 'key_pack_5', name: t.keyPack5, cost: "20 TL", val: 5 },
+                { id: 'key_pack_10', name: t.keyPack10, cost: "35 TL", val: 10 },
+                { id: 'key_pack_100', name: t.keyPack100, cost: "250 TL", val: 100 }
+            ];
+            
+            packs.forEach(pack => {
+                const card = document.createElement('div');
+                card.className = `shop-card key-pack-card`;
+                
+                let previewHTML = `
+                    <div class="card-preview" style="color: #00f3ff">
+                        <div style="font-size: 2.2rem; filter: drop-shadow(0 0 10px rgba(0, 243, 255, 0.4)); margin-top: 10px;">🔑<span style="font-size: 1.2rem; font-weight: 900; margin-left: 2px;">x${pack.val}</span></div>
+                    </div>
+                `;
+                
+                card.innerHTML = `
+                    ${previewHTML}
+                    <div class="card-name">${pack.name}</div>
+                    <div class="card-desc">${t.keyPackDesc}</div>
+                    <button class="btn-buy normal">${pack.cost}</button>
+                `;
+                
+                const btn = card.querySelector('.btn-buy');
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.triggerPayment(pack.id);
+                });
+                
                 container.appendChild(card);
             });
         }
@@ -582,6 +699,12 @@ class UIManager {
         }
     }
 
+    updateHUDKeys() {
+        if (this.values.hudKeys) {
+            this.values.hudKeys.textContent = window.gameShop.keys;
+        }
+    }
+
     showGameOver(score, coins, isNewHighscore) {
         if (this.values.overScore) this.values.overScore.textContent = `${score}m`;
         if (this.values.overCoins) this.values.overCoins.textContent = coins;
@@ -590,6 +713,46 @@ class UIManager {
             this.values.newHighscore.classList.remove('hidden');
         } else {
             this.values.newHighscore.classList.add('hidden');
+        }
+
+        // Anahtar ve reklam ile canlandırma butonlarını kontrol et
+        const hasKeys = window.gameShop.keys > 0;
+        const usedAd = window.gameInstance ? window.gameInstance.usedAdReviveThisRun : false;
+        const reviveSec = document.getElementById('revive-section');
+        
+        if (reviveSec) {
+            const btnKeyRevive = this.buttons.revive;
+            const btnAdRevive = this.buttons.reviveAd;
+            let showSection = false;
+            
+            if (hasKeys) {
+                btnKeyRevive.classList.remove('hidden');
+                const lblRevive = document.getElementById('lbl-revive-btn-text');
+                if (lblRevive) {
+                    const trText = this.translations[this.lang].btnRevive;
+                    lblRevive.textContent = trText.replace('{val}', window.gameShop.keys);
+                }
+                showSection = true;
+            } else {
+                btnKeyRevive.classList.add('hidden');
+            }
+            
+            if (!usedAd) {
+                btnAdRevive.classList.remove('hidden');
+                const lblAdText = document.getElementById('lbl-revive-ad-text');
+                if (lblAdText) {
+                    lblAdText.textContent = this.translations[this.lang].lblReviveAd;
+                }
+                showSection = true;
+            } else {
+                btnAdRevive.classList.add('hidden');
+            }
+            
+            if (showSection) {
+                reviveSec.classList.remove('hidden');
+            } else {
+                reviveSec.classList.add('hidden');
+            }
         }
 
         this.hudOverlay.classList.remove('active');
@@ -610,6 +773,95 @@ class UIManager {
                 this.tutorialOverlay.classList.add('hidden');
             }, 3500);
         }
+    }
+
+    startSimulatedAd() {
+        // Reklam ekranını aç
+        this.showScreen('ad-screen-overlay');
+        
+        const t = this.translations[this.lang];
+        this.values.adStatus.textContent = t.adStatusWatching;
+        
+        // Progress barı doldur
+        this.values.adProgressBar.style.width = '0%';
+        this.values.adProgressBar.offsetHeight; // Force reflow
+        this.values.adProgressBar.style.width = '100%';
+        
+        let count = 5;
+        this.values.adCountdown.textContent = count;
+        
+        const adInterval = setInterval(() => {
+            count--;
+            this.values.adCountdown.textContent = count;
+            if (count <= 0) {
+                clearInterval(adInterval);
+                this.values.adStatus.textContent = t.adStatusFinished;
+                
+                setTimeout(() => {
+                    this.showScreen(null); // Reklam ekranını kapat
+                    this.hudOverlay.classList.add('active');
+                    this.updateHUDKeys();
+                    
+                    // Canlanmayı başlat
+                    if (window.gameInstance) {
+                        window.gameInstance.usedAdReviveThisRun = true;
+                        window.gameInstance.revive();
+                    }
+                }, 600);
+            }
+        }, 1000);
+    }
+
+    triggerPayment(packId) {
+        this.pendingPaymentPack = packId;
+        const t = this.translations[this.lang];
+        
+        let desc = "";
+        let price = "";
+        if (packId === 'key_pack_1') {
+            desc = t.keyPack1 + " - " + t.keyPackDesc;
+            price = "5.00 TL";
+        } else if (packId === 'key_pack_5') {
+            desc = t.keyPack5 + " - " + t.keyPackDesc;
+            price = "20.00 TL";
+        } else if (packId === 'key_pack_10') {
+            desc = t.keyPack10 + " - " + t.keyPackDesc;
+            price = "35.00 TL";
+        } else if (packId === 'key_pack_100') {
+            desc = t.keyPack100 + " - " + t.keyPackDesc;
+            price = "250.00 TL";
+        }
+        
+        this.values.paymentDesc.textContent = desc;
+        this.values.paymentPrice.textContent = price;
+        this.values.paymentTitle.textContent = t.paymentTitle;
+        this.buttons.confirmPayment.textContent = t.paymentConfirm;
+        this.buttons.cancelPayment.textContent = t.paymentCancel;
+        
+        this.showScreen('payment-modal-overlay');
+    }
+
+    completeSimulatedPayment() {
+        if (!this.pendingPaymentPack) return;
+        
+        let keysToAdd = 0;
+        if (this.pendingPaymentPack === 'key_pack_1') keysToAdd = 1;
+        else if (this.pendingPaymentPack === 'key_pack_5') keysToAdd = 5;
+        else if (this.pendingPaymentPack === 'key_pack_10') keysToAdd = 10;
+        else if (this.pendingPaymentPack === 'key_pack_100') keysToAdd = 100;
+        
+        window.gameShop.addKeys(keysToAdd);
+        window.gameAudio.playCoin(); // Ödeme onay sesi
+        this.vibrate(150);
+        
+        const t = this.translations[this.lang];
+        alert(t.paymentSuccess.replace('{val}', keysToAdd));
+        
+        this.pendingPaymentPack = null;
+        this.updateHUDKeys();
+        this.updateShopCoins();
+        this.showScreen('shop-menu');
+        this.renderShopItems();
     }
 }
 

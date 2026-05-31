@@ -66,6 +66,7 @@
                 <div class="shop-tabs">
                     <button id="tab-skins" class="tab-btn active">KOSTÜMLER</button>
                     <button id="tab-trails" class="tab-btn">KUYRUK EFEKTLERİ</button>
+                    <button id="tab-keys" class="tab-btn">ANAHTARLAR</button>
                 </div>
 
                 <!-- Ürün Listesi (Dinamik doldurulacak) -->
@@ -144,6 +145,10 @@
             </div>
             
             <div class="hud-right">
+                <div class="hud-keys-box">
+                    <span class="key-icon">🔑</span>
+                    <span id="val-hud-keys" class="hud-value">0</span>
+                </div>
                 <div class="hud-coins-box">
                     <span class="coin-icon">🪙</span>
                     <span id="val-hud-coins" class="hud-value">0</span>
@@ -200,9 +205,56 @@
                     </div>
                 </div>
 
+                <!-- Canlandırma Bölümü -->
+                <div id="revive-section" class="revive-box hidden">
+                    <button id="btn-revive" class="btn btn-revive btn-glow">
+                        <span class="btn-icon">🔑</span> <span id="lbl-revive-btn-text">ANAHATAR KULLAN VE DEVAM ET (0)</span>
+                    </button>
+                    <button id="btn-revive-ad" class="btn btn-revive-ad btn-glow">
+                        <span class="btn-icon">🎬</span> <span id="lbl-revive-ad-text">REKLAM İZLE VE CANLAN</span>
+                    </button>
+                </div>
+
                 <div class="menu-buttons">
                     <button id="btn-retry" class="btn btn-primary btn-glow">TEKRAR DENE</button>
                     <button id="btn-game-over-main" class="btn btn-secondary">ANA MENÜ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SİMÜLE REKLAM EKRANI ================= -->
+        <div id="ad-screen-overlay" class="ui-screen">
+            <div class="menu-content glass-panel ad-panel">
+                <div class="ad-header">
+                    <span class="ad-badge">SPONSORLU YAYIN</span>
+                    <span id="ad-countdown" class="ad-timer">5</span>
+                </div>
+                <div class="ad-video-mock">
+                    <div class="ad-logo">⚡ SİBER KOPİLOT 2077</div>
+                    <div class="ad-message">Geleceğin Yapay Zeka Oyunu Çok Yakında!</div>
+                    <div class="ad-progress-bar-container">
+                        <div id="ad-progress-bar" class="ad-progress-bar"></div>
+                    </div>
+                </div>
+                <p id="ad-status" class="ad-status-text">Ödül için reklamın bitmesi bekleniyor...</p>
+            </div>
+        </div>
+
+        <!-- ================= SİMÜLE SİBER ÖDEME MODALI ================= -->
+        <div id="payment-modal-overlay" class="ui-screen">
+            <div class="menu-content glass-panel payment-panel">
+                <div class="payment-card">
+                    <div class="card-chip"></div>
+                    <div class="card-number">•••• •••• •••• 2077</div>
+                    <div class="card-holder">SİBER OYUNCU</div>
+                    <div class="card-brand">NEONPAY</div>
+                </div>
+                <h3 id="payment-title">ANAHTAR PAKETİ AL</h3>
+                <p id="payment-desc">5 Canlandırma Anahtarı satın alıyorsunuz.</p>
+                <div class="payment-price" id="payment-price">5.00 TL</div>
+                <div class="menu-buttons">
+                    <button id="btn-confirm-payment" class="btn btn-primary btn-glow">ÖDEMEYİ ONAYLA</button>
+                    <button id="btn-cancel-payment" class="btn btn-danger">İPTAL ET</button>
                 </div>
             </div>
         </div>

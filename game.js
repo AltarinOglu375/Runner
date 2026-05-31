@@ -11,6 +11,8 @@ class GravityRunner {
         
         // Oyun Durumları
         this.state = 'MENU'; // 'MENU', 'PLAYING', 'PAUSED', 'GAMEOVER'
+        this.countdownTimer = 0;
+        this.usedAdReviveThisRun = false;
         
         // Fizik ve Karakter Parametreleri
         this.player = {
@@ -41,6 +43,8 @@ class GravityRunner {
         this.obstacles = []; // Dikenler ve dikey engeller
         this.coins = [];
         this.particles = [];
+        this.reviveKeys = []; // Toplanan canlandırma anahtarları
+        this.invulnerableTimer = 0; // Geçici dokunulmazlık süresi
         this.bgLines = [];
         for (let i = 0; i < 15; i++) {
             this.bgLines.push({
@@ -186,6 +190,8 @@ class GravityRunner {
         this.gameSpeed = this.baseSpeed;
         this.distanceTimer = 0;
         this.isNewHighscore = false;
+        this.countdownTimer = 0;
+        this.usedAdReviveThisRun = false;
         
         // Karakteri sıfırla
         const skin = window.gameShop.getActiveSkinDetails();
@@ -204,6 +210,8 @@ class GravityRunner {
         this.obstacles = [];
         this.coins = [];
         this.particles = [];
+        this.reviveKeys = [];
+        this.invulnerableTimer = 0;
         
         // Başlangıç Platformlarını Üret
         this.generateInitialPlatforms();
@@ -250,6 +258,70 @@ class GravityRunner {
         
         // Ölüm patlaması parçacıkları oluştur
         this.createDeathExplosion();
+    }
+
+    findSafePlatformAtX(x) {
+        // Karakterin X hizasında üst üste binen platformları bul
+        const candidates = this.platforms.filter(p => p.x <= x + this.player.width && p.x + p.width >= x);
+        if (candidates.length === 0) return null;
+        
+        // Tercihen mevcut yerçekimi yönümüze uygun olanı seç
+        const match = candidates.find(p => {
+            if (this.player.gravityDir === 1) {
+                return p.type === 'bottom' || p.type === 'center';
+            } else {
+                return p.type === 'top' || p.type === 'center';
+            }
+        });
+        
+        if (match) return match;
+        
+        // Eşleşme yoksa ilk adayı döndür
+        return candidates[0];
+    }
+
+    revive() {
+        this.state = 'COUNTDOWN';
+        this.countdownTimer = 3.05; // 3 saniye + hafif bir başlangıç payı
+        this.player.vy = 0;
+        this.player.isGrounded = true;
+        this.player.midAirFlipsLeft = 1;
+
+        // Karakteri X konumundaki en uygun güvenli platformun üzerine yerleştir
+        const safePlat = this.findSafePlatformAtX(this.player.x);
+        if (safePlat) {
+            if (safePlat.type === 'bottom') {
+                this.player.gravityDir = 1;
+                this.player.y = safePlat.y - this.player.height;
+            } else if (safePlat.type === 'top') {
+                this.player.gravityDir = -1;
+                this.player.y = safePlat.y + safePlat.height;
+            } else if (safePlat.type === 'center') {
+                if (this.player.gravityDir === 1) {
+                    this.player.y = safePlat.y - this.player.height;
+                } else {
+                    this.player.y = safePlat.y + safePlat.height;
+                }
+            }
+        } else {
+            // Platform bulunamazsa varsayılan konuma yerleştir
+            if (this.player.gravityDir === 1) {
+                this.player.y = 580 - this.player.height;
+            } else {
+                this.player.y = 140;
+            }
+        }
+        
+        this.player.rotation = this.player.gravityDir === 1 ? 0 : Math.PI;
+
+        // Karakterin önündeki engelleri temizle ki canlandığı an tekrar ölmesin
+        this.obstacles = this.obstacles.filter(o => o.x > this.player.x + 350 || o.x < this.player.x - 50);
+
+        // 2 saniyelik geçici dokunulmazlık (invulnerability)
+        this.invulnerableTimer = 120; // 60 FPS'te 2 saniye
+
+        // Parçacık patlaması oluştur (yeniden doğuş efekti)
+        this.createFlipBurst();
     }
 
     // --- Harita ve Nesne Üretimi (Procedural Generation) ---
@@ -308,6 +380,7 @@ class GravityRunner {
         // Altınları zemin (535) veya tavan (185) yakınında çizerek karakterin temas etmesini sağla
         const spawnOnFloor = Math.random() > 0.5;
         this.spawnCoinsRow(startX, length, spawnOnFloor ? 535 : 185);
+        this.spawnKey(startX, length, spawnOnFloor ? 535 : 185);
     }
 
     // 2. Alt Boşluk (Zeminde boşluk var, tavan dolu. Oyuncu tavana kaçmalı!)
@@ -355,6 +428,7 @@ class GravityRunner {
 
         this.spawnCoinsRow(startX, overlap, 535); // Alt platform hizasında altınlar
         this.spawnCoinsRow(startX + overlap, length - overlap, 185); // Üst platform hizasında altınlar
+        this.spawnKey(startX, length, Math.random() > 0.5 ? 535 : 185);
     }
 
     // 5. Orta Yüzen Platform Düzeni
@@ -378,6 +452,7 @@ class GravityRunner {
         // Altınlar orta platform boyunca (yüzen zemin üstünde/altında) yerleştirilir
         const floatOnTop = Math.random() > 0.5;
         this.spawnCoinsRow(startX + overlap, length - overlap * 2, floatOnTop ? 340 - 30 : 380 + 30);
+        this.spawnKey(startX + overlap, length - overlap * 2, floatOnTop ? 340 - 30 : 380 + 30);
     }
 
     // --- ENGEL VE ALTIN KOORDİNASYON SİSTEMİ ---
@@ -466,9 +541,20 @@ class GravityRunner {
         }
     }
 
+    spawnKey(startX, length, yCoord) {
+        // %6 şansla canlandırma anahtarı üret
+        if (Math.random() < 0.06) {
+            // Anahtarın paralarla üst üste gelmemesi için segment ortasından biraz uzağa koyalım
+            const keyX = startX + length * 0.5 + (Math.random() - 0.5) * 40;
+            if (this.isCoinPositionSafe(keyX, yCoord)) {
+                this.reviveKeys.push({ x: keyX, y: yCoord, radius: 14, collected: false });
+            }
+        }
+    }
+
     spawnCoinsArc(startX, gapLength, invert = false) {
         // Hıza bağlı olarak karakterin zıplama (yerçekimi değişimi) yatay mesafesini tam olarak hesapla
-        const estGravity = 0.24 + (this.gameSpeed * 0.05);
+        const estGravity = 0.12 + (this.gameSpeed * 0.03);
         // H = 350px (Zemin 535 ve Tavan 185 arasındaki uçuş mesafesi)
         const estTime = Math.sqrt(2 * 350 / estGravity); 
         const estDist = estTime * this.gameSpeed;
@@ -503,13 +589,37 @@ class GravityRunner {
     // --- Güncelleme Mantığı (Physics and Logic Update) ---
 
     update() {
+        if (this.state === 'COUNTDOWN') {
+            // Parçacıkları ve arka plan çizgilerini güncelle
+            this.updateParticles();
+            this.bgLines.forEach(l => {
+                l.x -= this.gameSpeed * l.speedMultiplier * 0.1;
+                if (l.x + l.length < -50) {
+                    l.x = this.vWidth + Math.random() * 100;
+                    l.y = this.randomRange(150, 570);
+                    l.length = this.randomRange(30, 80);
+                    l.speedMultiplier = this.randomRange(0.5, 1.1);
+                    l.alpha = this.randomRange(0.015, 0.05);
+                }
+            });
+            
+            // Sayacı azalt
+            this.countdownTimer -= 1 / 60;
+            if (this.countdownTimer <= 0) {
+                this.state = 'PLAYING';
+                this.invulnerableTimer = 120;
+                window.gameAudio.startMusic();
+            }
+            return;
+        }
+
         if (this.state !== 'PLAYING') return;
 
         // Zorluk ve Hız artışı (Çok yavaş hızlanma ve daha düşük maksimum hız)
         this.gameSpeed = this.baseSpeed + Math.min(this.score / 500, 4.0);
 
         // Hıza bağlı olarak yerçekimini güncelle (atlama yayını dengede tutar)
-        this.gravityForce = 0.24 + (this.gameSpeed * 0.05);
+        this.gravityForce = 0.12 + (this.gameSpeed * 0.03);
 
         // Skor (Mesafe) Artışı (hıza bağlı gerçekçi mesafe hesabı)
         this.distanceTimer += this.gameSpeed * 0.018;
@@ -556,6 +666,8 @@ class GravityRunner {
         this.obstacles.forEach(o => o.x -= this.gameSpeed);
         // Altınları kaydır
         this.coins.forEach(c => c.x -= this.gameSpeed);
+        // Anahtarları kaydır
+        this.reviveKeys.forEach(k => k.x -= this.gameSpeed);
         // Arka plan hız çizgilerini kaydır (oyun hızına göre hareket eder)
         this.bgLines.forEach(l => {
             l.x -= this.gameSpeed * l.speedMultiplier * 1.5;
@@ -575,6 +687,7 @@ class GravityRunner {
         this.platforms = this.platforms.filter(p => p.x + p.width > -100);
         this.obstacles = this.obstacles.filter(o => o.x + o.width > -100);
         this.coins = this.coins.filter(c => !c.collected && c.x + 30 > -100);
+        this.reviveKeys = this.reviveKeys.filter(k => !k.collected && k.x + 30 > -100);
 
         // Yeni platformları üret
         this.generateChunk(this.vWidth + 600);
@@ -598,11 +711,15 @@ class GravityRunner {
             return;
         }
 
-        // Engel çarpışmaları (Ölüm kontrolü)
-        for (let i = 0; i < this.obstacles.length; i++) {
-            if (this.checkObstacleCollision(this.obstacles[i])) {
-                this.gameOver();
-                return;
+        // Engel çarpışmaları (Ölüm kontrolü - Geçici dokunulmazlık aktif ise atla)
+        if (this.invulnerableTimer > 0) {
+            this.invulnerableTimer--;
+        } else {
+            for (let i = 0; i < this.obstacles.length; i++) {
+                if (this.checkObstacleCollision(this.obstacles[i])) {
+                    this.gameOver();
+                    return;
+                }
             }
         }
 
@@ -618,6 +735,22 @@ class GravityRunner {
                 // HUD güncelle
                 if (window.gameUI && window.gameUI.values.hudCoins) {
                     window.gameUI.values.hudCoins.textContent = this.runCoins;
+                }
+            }
+        });
+
+        // Canlandırma anahtarı toplama çarpışmaları
+        this.reviveKeys.forEach(k => {
+            if (!k.collected && this.checkKeyCollision(k)) {
+                k.collected = true;
+                window.gameShop.addKeys(1);
+                window.gameAudio.playCoin(); // Altın sesi
+                const bob = Math.sin(Date.now() / 250 + k.x * 0.02) * 3;
+                this.createKeySparkle(k.x, k.y + bob);
+                
+                // HUD güncelle
+                if (window.gameUI) {
+                    window.gameUI.updateHUDKeys();
                 }
             }
         });
@@ -693,6 +826,7 @@ class GravityRunner {
                 }
                 
                 if (verticalOverlap) {
+                    if (this.invulnerableTimer > 0) return; // Dokunulmazlık sırasında yan duvar ölümlerini bypass et
                     this.gameOver();
                     return;
                 }
@@ -901,24 +1035,59 @@ class GravityRunner {
         // 2. PLATFORMLAR
         this.platforms.forEach(p => this.drawPlatform(p));
 
-        // 3. ALTINLAR
+        // 3. ALTINLAR VE ANAHTARLAR
         this.coins.forEach(c => this.drawCoin(c));
+        this.reviveKeys.forEach(k => this.drawKey(k));
 
         // 4. ENGELLER (Dikenler ve Duvarlar)
         this.obstacles.forEach(o => this.drawObstacle(o));
 
         // 5. OYUNCU KUYRUĞU (TRAIL)
-        if (this.state === 'PLAYING') {
+        if (this.state === 'PLAYING' || this.state === 'COUNTDOWN') {
             this.drawPlayerTrail();
         }
 
         // 6. OYUNCU (CHARACTER)
-        if (this.state === 'PLAYING' || this.state === 'PAUSED') {
+        if (this.state === 'PLAYING' || this.state === 'PAUSED' || this.state === 'COUNTDOWN') {
             this.drawPlayer();
         }
 
         // 7. PARÇACIKLAR
         this.drawParticles();
+
+        // 8. GERİ SAYIM SAYACI (COUNTDOWN)
+        if (this.state === 'COUNTDOWN') {
+            this.ctx.save();
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            const countVal = Math.ceil(this.countdownTimer);
+            const fract = this.countdownTimer - (countVal - 1);
+            
+            // Küçülüp kaybolma efekti
+            const scale = 0.5 + fract * 1.5;
+            const alpha = Math.min(fract * 1.5, 1.0);
+            
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = `900 ${Math.floor(72 * scale)}px 'Orbitron'`;
+            
+            if (this.useShadows) {
+                this.ctx.shadowBlur = 20;
+            }
+            
+            let dispText = countVal.toString();
+            if (this.countdownTimer <= 0.35) {
+                dispText = window.gameUI && window.gameUI.lang === 'en' ? 'GO!' : 'BAŞLA!';
+                this.ctx.fillStyle = '#39ff14'; // matrix yeşili
+                if (this.useShadows) this.ctx.shadowColor = '#39ff14';
+            } else {
+                this.ctx.fillStyle = '#00f3ff'; // neon camgöbeği
+                if (this.useShadows) this.ctx.shadowColor = '#00f3ff';
+            }
+            
+            this.ctx.fillText(dispText, this.vWidth / 2, this.vHeight / 2);
+            this.ctx.restore();
+        }
 
         this.ctx.restore(); // Sarsıntı etkisini geri al
     }
@@ -1052,6 +1221,86 @@ class GravityRunner {
             this.ctx.stroke();
         }
 
+        this.ctx.restore();
+    }
+
+    checkKeyCollision(k) {
+        const px = this.player.x + this.player.width / 2;
+        const py = this.player.y + this.player.height / 2;
+        
+        // Anahtarlar için de süzülme dalgalanması hesapla
+        const bob = Math.sin(Date.now() / 250 + k.x * 0.02) * 3;
+        const kyWithBob = k.y + bob;
+        
+        const dx = px - k.x;
+        const dy = py - kyWithBob;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < (22 + k.radius);
+    }
+
+    createKeySparkle(kx, ky) {
+        const count = this.quality === 'low' ? 8 : 20;
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = this.randomRange(2.5, 7);
+            this.particles.push({
+                x: kx,
+                y: ky,
+                vx: Math.cos(angle) * speed - this.gameSpeed * 0.1,
+                vy: Math.sin(angle) * speed,
+                color: '#00f3ff', // Camgöbeği kıvılcımlar
+                size: this.randomRange(2.5, 5),
+                life: 1.0,
+                decay: this.randomRange(0.025, 0.06),
+                type: 'ring'
+            });
+        }
+    }
+
+    drawKey(k) {
+        this.ctx.save();
+        
+        const bob = Math.sin(Date.now() / 250 + k.x * 0.02) * 3;
+        this.ctx.translate(k.x, k.y + bob);
+        
+        // Kendi etrafında yavaşça dönsün
+        const angle = Date.now() / 350;
+        this.ctx.rotate(angle);
+        
+        if (this.useShadows) {
+            this.ctx.shadowColor = '#00f3ff';
+            this.ctx.shadowBlur = 14;
+        }
+        
+        this.ctx.strokeStyle = '#00f3ff';
+        this.ctx.lineWidth = 3;
+        
+        // Anahtar çizimi:
+        // 1. Kafa halkası
+        this.ctx.beginPath();
+        this.ctx.arc(-6, 0, 7, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // 2. Şaft gövdesi
+        this.ctx.beginPath();
+        this.ctx.moveTo(1, 0);
+        this.ctx.lineTo(15, 0);
+        this.ctx.stroke();
+        
+        // 3. Dişler
+        this.ctx.beginPath();
+        this.ctx.moveTo(9, 0);
+        this.ctx.lineTo(9, 5);
+        this.ctx.moveTo(13, 0);
+        this.ctx.lineTo(13, 5);
+        this.ctx.stroke();
+        
+        // Merkez parıltısı
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(-6, 0, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+        
         this.ctx.restore();
     }
 
@@ -1219,6 +1468,12 @@ class GravityRunner {
         
         const pl = this.player;
         const activeSkin = window.gameShop.getActiveSkinDetails();
+
+        // Eğer geçici dokunulmazlık varsa yanıp söndür
+        if (this.invulnerableTimer > 0) {
+            const blink = Math.floor(Date.now() / 120) % 2 === 0;
+            this.ctx.globalAlpha = blink ? 0.35 : 0.85;
+        }
 
         // Çizim merkezini karakterin ortasına al
         this.ctx.translate(pl.x + pl.width / 2, pl.y + pl.height / 2);

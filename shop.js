@@ -4,6 +4,7 @@ class ShopSystem {
     constructor() {
         this.coins = 0;
         this.highscore = 0;
+        this.keys = 0; // Canlandırma anahtarı sayısı
         this.unlockedSkins = ['classic'];
         this.unlockedTrails = ['classic_line'];
         this.currentSkin = 'classic';
@@ -96,6 +97,7 @@ class ShopSystem {
     loadGameData() {
         const storedCoins = localStorage.getItem('gr_coins');
         const storedHighscore = localStorage.getItem('gr_highscore');
+        const storedKeys = localStorage.getItem('gr_keys');
         const storedSkins = localStorage.getItem('gr_unlocked_skins');
         const storedTrails = localStorage.getItem('gr_unlocked_trails');
         const storedCurSkin = localStorage.getItem('gr_current_skin');
@@ -103,6 +105,7 @@ class ShopSystem {
 
         if (storedCoins !== null) this.coins = parseInt(storedCoins);
         if (storedHighscore !== null) this.highscore = parseInt(storedHighscore);
+        if (storedKeys !== null) this.keys = parseInt(storedKeys);
         
         if (storedSkins !== null) {
             try {
@@ -131,10 +134,26 @@ class ShopSystem {
     saveGameData() {
         localStorage.setItem('gr_coins', this.coins);
         localStorage.setItem('gr_highscore', this.highscore);
+        localStorage.setItem('gr_keys', this.keys);
         localStorage.setItem('gr_unlocked_skins', JSON.stringify(this.unlockedSkins));
         localStorage.setItem('gr_unlocked_trails', JSON.stringify(this.unlockedTrails));
         localStorage.setItem('gr_current_skin', this.currentSkin);
         localStorage.setItem('gr_current_trail', this.currentTrail);
+    }
+
+    addKeys(amount) {
+        this.keys += amount;
+        this.saveGameData();
+        return this.keys;
+    }
+
+    useKey() {
+        if (this.keys > 0) {
+            this.keys--;
+            this.saveGameData();
+            return true;
+        }
+        return false;
     }
 
     addCoins(amount) {
@@ -205,6 +224,7 @@ class ShopSystem {
     resetData() {
         this.coins = 0;
         this.highscore = 0;
+        this.keys = 0;
         this.unlockedSkins = ['classic'];
         this.unlockedTrails = ['classic_line'];
         this.currentSkin = 'classic';

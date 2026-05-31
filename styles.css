@@ -847,3 +847,228 @@ input:checked + .slider:before {
         padding: 16px;
     }
 }
+
+/* ================= CANLANDIRMA ANAHTARI STİLLERİ ================= */
+.hud-keys-box {
+    background: rgba(13, 15, 28, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 8px 18px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    height: 44px;
+}
+
+.hud-keys-box .hud-value {
+    color: #00f3ff;
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.25);
+}
+
+.key-icon {
+    font-size: 1.25rem;
+    animation: floatKeyIcon 2s ease-in-out infinite alternate;
+}
+
+@keyframes floatKeyIcon {
+    from { transform: translateY(0); }
+    to { transform: translateY(-3px); }
+}
+
+.revive-box {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.btn-revive {
+    background: #00f3ff;
+    color: #03050a;
+    width: 100%;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+}
+
+.btn-revive:active {
+    transform: scale(0.96);
+    background: #00d2dd;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.2);
+}
+
+/* ================= YENİ REKLAM VE ÖDEME MODALİ VE ANAHTAR MARKET STİLLERİ ================= */
+.btn-revive-ad {
+    background: linear-gradient(135deg, #ff007f 0%, #b000ff 100%);
+    color: #ffffff;
+    width: 100%;
+    margin-top: 10px;
+    box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-revive-ad:active {
+    transform: scale(0.96);
+    background: linear-gradient(135deg, #dd006f 0%, #9000dd 100%);
+    box-shadow: 0 0 8px rgba(255, 0, 127, 0.2);
+}
+
+/* Reklam Paneli */
+.ad-panel {
+    max-width: 500px;
+    background: rgba(8, 10, 20, 0.95);
+    border: 1px solid rgba(255, 0, 127, 0.3);
+    box-shadow: 0 0 30px rgba(255, 0, 127, 0.25);
+}
+
+.ad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+}
+
+.ad-badge {
+    background: rgba(255, 0, 127, 0.2);
+    border: 1px solid #ff007f;
+    color: #ff007f;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+}
+
+.ad-timer {
+    font-family: var(--font-game);
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #00f3ff;
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+    background: rgba(0, 243, 255, 0.1);
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #00f3ff;
+}
+
+.ad-video-mock {
+    background: #0d0f1a;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 40px 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+}
+
+.ad-logo {
+    font-family: var(--font-game);
+    font-weight: 900;
+    font-size: 1.6rem;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    margin-bottom: 10px;
+    animation: neonPulse 1.5s infinite alternate;
+}
+
+@keyframes neonPulse {
+    from { text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
+    to { text-shadow: 0 0 20px rgba(0, 243, 255, 0.8), 0 0 5px rgba(255, 255, 255, 0.5); }
+}
+
+.ad-message {
+    color: #a0a5c0;
+    font-size: 0.95rem;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.ad-progress-bar-container {
+    width: 90%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.ad-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #00f3ff, #ff007f);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+    transition: width 5s linear;
+}
+
+.ad-status-text {
+    font-size: 0.85rem;
+    color: #6c7293;
+}
+
+/* Ödeme Paneli */
+.payment-panel {
+    background: rgba(6, 8, 16, 0.96);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.25);
+    max-width: 420px;
+}
+
+.payment-card {
+    background: linear-gradient(135deg, #1b203a 0%, #0d0f1a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    font-family: var(--font-game);
+    position: relative;
+}
+
+.card-chip {
+    width: 35px;
+    height: 25px;
+    background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.card-number {
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    color: #ffffff;
+    margin-bottom: 15px;
+}
+
+.card-holder {
+    font-size: 0.75rem;
+    color: #6c7293;
+    display: inline-block;
+}
+
+.card-brand {
+    float: right;
+    font-weight: 900;
+    font-style: italic;
+    color: var(--primary-neon);
+    text-shadow: 0 0 5px var(--primary-glow);
+}
+
+.payment-price {
+    font-family: var(--font-game);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #39ff14;
+    text-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+    margin: 15px 0 25px 0;
+}
