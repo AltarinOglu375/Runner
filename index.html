@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d0e15">
+    <title>Ters Düz Koşucu | Gravity Runner</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Arka Plan Grid Efekti -->
+        <div class="bg-grid"></div>
+        <div class="bg-vignette"></div>
+
+        <!-- Oyun Çizim Alanı (Canvas) -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- ================= ANA MENÜ ================= -->
+        <div id="main-menu" class="ui-screen active">
+            <div class="menu-content glass-panel">
+                <div class="game-logo">
+                    <span class="logo-text-upper">TERS DÜZ</span>
+                    <span class="logo-text-lower">KOŞUCU</span>
+                </div>
+                
+                <div class="highscore-badge">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                        <path d="M4 22h16"></path>
+                        <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"></path>
+                        <path d="M12 2a5 5 0 0 0-5 5v3c0 2.2 1.8 4 4 4h2c2.2 0 4-1.8 4-4V7a5 5 0 0 0-5-5z"></path>
+                    </svg>
+                    <span>EN YÜKSEK SKOR: <strong id="val-menu-highscore">0</strong>m</span>
+                </div>
+
+                <div class="menu-buttons">
+                    <button id="btn-play" class="btn btn-primary btn-glow">
+                        <span class="btn-icon">▶</span> OYNA
+                    </button>
+                    <button id="btn-shop" class="btn btn-secondary">
+                        <span class="btn-icon">🛒</span> MARKET
+                    </button>
+                    <button id="btn-settings" class="btn btn-secondary">
+                        <span class="btn-icon">⚙️</span> AYARLAR
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MARKET (SHOP) MENÜSÜ ================= -->
+        <div id="shop-menu" class="ui-screen">
+            <div class="menu-content shop-content glass-panel">
+                <div class="shop-header">
+                    <h2>SİBER MARKET</h2>
+                    <div class="coin-badge">
+                        <span class="coin-icon">🪙</span>
+                        <span id="val-shop-coins">0</span>
+                    </div>
+                </div>
+
+                <!-- Tab Butonları -->
+                <div class="shop-tabs">
+                    <button id="tab-skins" class="tab-btn active">KOSTÜMLER</button>
+                    <button id="tab-trails" class="tab-btn">KUYRUK EFEKTLERİ</button>
+                </div>
+
+                <!-- Ürün Listesi (Dinamik doldurulacak) -->
+                <div id="shop-items-container" class="shop-items-grid">
+                    <!-- Javascript ile doldurulur -->
+                </div>
+
+                <div class="shop-footer">
+                    <button id="btn-shop-back" class="btn btn-back">GERİ DÖN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= AYARLAR MENÜSÜ ================= -->
+        <div id="settings-menu" class="ui-screen">
+            <div class="menu-content glass-panel">
+                <h2>AYARLAR</h2>
+                
+                <div class="settings-list">
+                    <div class="setting-item">
+                        <label for="toggle-music">Müzik</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="toggle-music" checked>
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label for="toggle-sound">Ses Efektleri</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="toggle-sound" checked>
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label for="toggle-vibrate">Cihaz Titreşimi</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="toggle-vibrate" checked>
+                            <span class="slider"></span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label id="lbl-quality" for="select-quality">Grafik Kalitesi</label>
+                        <select id="select-quality" class="cyber-select">
+                            <option id="opt-q-high" value="high">Yüksek</option>
+                            <option id="opt-q-medium" value="medium">Orta</option>
+                            <option id="opt-q-low" value="low">Düşük</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label id="lbl-language" for="select-language">Dil / Language</label>
+                        <select id="select-language" class="cyber-select">
+                            <option value="tr">Türkçe</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button id="btn-reset-data" class="btn btn-danger">VERİLERİ SIFIRLA</button>
+                    <button id="btn-settings-back" class="btn btn-back">GERİ DÖN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= HUD (OYUN İÇİ EKRAN) ================= -->
+        <div id="game-hud" class="hud-overlay">
+            <div class="hud-left">
+                <div class="hud-score-box">
+                    <span class="hud-label">MESAFE</span>
+                    <span id="val-hud-score" class="hud-value">0m</span>
+                </div>
+            </div>
+            
+            <div class="hud-right">
+                <div class="hud-coins-box">
+                    <span class="coin-icon">🪙</span>
+                    <span id="val-hud-coins" class="hud-value">0</span>
+                </div>
+                <button id="btn-pause" class="hud-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+                        <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Başlangıçtaki Yönlendirme Mesajı -->
+            <div id="tutorial-overlay" class="tutorial-overlay">
+                <div class="tutorial-card">
+                    <div class="tutorial-animation">
+                        <div class="finger-tap"></div>
+                    </div>
+                    <p class="desktop-text">YERÇEKİMİNİ DEĞİŞTİRMEK İÇİN <span class="key-cap">SPACE (BOŞLUK)</span> TUŞUNA VEYA <span class="key-cap">SOL TIKLA</span></p>
+                    <p class="mobile-text">YERÇEKİMİNİ DEĞİŞTİRMEK İÇİN <span class="key-cap">EKRANA DOKUN</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= DURAKLATMA MENÜSÜ ================= -->
+        <div id="pause-menu" class="ui-screen">
+            <div class="menu-content glass-panel">
+                <h2>OYUN DURDURULDU</h2>
+                
+                <div class="menu-buttons">
+                    <button id="btn-resume" class="btn btn-primary">DEVAM ET</button>
+                    <button id="btn-pause-restart" class="btn btn-secondary">YENİDEN BAŞLAT</button>
+                    <button id="btn-pause-quit" class="btn btn-danger">ANA MENÜ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= OYUN BİTTİ (GAME OVER) MENÜSÜ ================= -->
+        <div id="game-over-menu" class="ui-screen">
+            <div class="menu-content glass-panel">
+                <h1 class="game-over-title">SİSTEM DIŞI</h1>
+                
+                <div class="game-over-stats">
+                    <div class="stat-row">
+                        <span>Skor (Mesafe):</span>
+                        <span id="val-over-score">0m</span>
+                    </div>
+                    <div id="new-highscore-badge" class="highscore-flash hidden">
+                        YENİ EN YÜKSEK SKOR!
+                    </div>
+                    <div class="stat-row">
+                        <span>Toplanan Altın:</span>
+                        <span class="gold-text"><span class="coin-icon">🪙</span> +<span id="val-over-coins">0</span></span>
+                    </div>
+                </div>
+
+                <div class="menu-buttons">
+                    <button id="btn-retry" class="btn btn-primary btn-glow">TEKRAR DENE</button>
+                    <button id="btn-game-over-main" class="btn btn-secondary">ANA MENÜ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scriptleri Sırayla Yükleme -->
+    <script src="audio.js"></script>
+    <script src="shop.js"></script>
+    <script src="ui.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
