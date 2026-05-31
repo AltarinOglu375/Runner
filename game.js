@@ -30,6 +30,10 @@ class GravityRunner {
         this.gameSpeed = this.baseSpeed;
         this.gravityForce = 0.48; // Hıza bağlı olarak dinamik güncellenecek
         this.maxFallSpeed = 16;
+
+        // Mobil Algılama ve Performans Ayarları
+        this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        this.useShadows = false; // start() içinde kalite ayarlarına göre aktif edilecek
         
         // Oyun Nesneleri
         this.platforms = [];
@@ -73,8 +77,14 @@ class GravityRunner {
         const width = container.clientWidth;
         const height = container.clientHeight;
         
-        // Retina / Yüksek DPI ekranlar için piksel oranını ayarla
-        const dpr = window.devicePixelRatio || 1;
+        // Mobil performansı ve grafik kalitesi için DPR'ı akıllıca sınırla (Mobilde 1.3 DPR akıcılık ve netlik için idealdir)
+        let maxDpr = 2.0;
+        if (this.quality === 'medium') maxDpr = 1.5;
+        if (this.quality === 'low') maxDpr = 1.0;
+
+        const rawDpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(rawDpr, this.isMobile ? 1.3 : maxDpr);
+        
         this.canvas.width = width * dpr;
         this.canvas.height = height * dpr;
         this.canvas.style.width = width + 'px';
@@ -140,6 +150,12 @@ class GravityRunner {
         if (window.gameUI) {
             this.quality = window.gameUI.graphicsQuality;
         }
+
+        // Mobilde performansı korumak için gölgeleri tamamen kapat (Mobilde shadowBlur çok yavaştır!)
+        this.useShadows = (this.quality === 'high') && !this.isMobile;
+
+        // Çözünürlüğü kalite ayarlarına göre yeniden ölçekle
+        this.resizeCanvas();
 
         // Oyun durumunu sıfırla
         this.state = 'PLAYING';
@@ -832,9 +848,11 @@ class GravityRunner {
         this.ctx.strokeStyle = '#00f3ff';
         this.ctx.lineWidth = 3;
         
-        // Işıma (Glow) efekti
-        this.ctx.shadowColor = 'rgba(0, 243, 255, 0.5)';
-        this.ctx.shadowBlur = 8;
+        // Işıma (Glow) efekti (Sadece masaüstü yüksek kalitede performansı korumak için)
+        if (this.useShadows) {
+            this.ctx.shadowColor = 'rgba(0, 243, 255, 0.5)';
+            this.ctx.shadowBlur = 8;
+        }
         
         this.ctx.beginPath();
         if (p.type === 'bottom') {
@@ -867,8 +885,10 @@ class GravityRunner {
             this.ctx.strokeStyle = '#ffffff';
             this.ctx.lineWidth = 1;
             
-            this.ctx.shadowColor = 'rgba(255, 0, 127, 0.6)';
-            this.ctx.shadowBlur = 10;
+            if (this.useShadows) {
+                this.ctx.shadowColor = 'rgba(255, 0, 127, 0.6)';
+                this.ctx.shadowBlur = 10;
+            }
 
             this.ctx.beginPath();
             if (o.direction === 1) {
@@ -896,8 +916,10 @@ class GravityRunner {
             this.ctx.strokeStyle = '#ffffff';
             this.ctx.lineWidth = 1.5;
             
-            this.ctx.shadowColor = 'rgba(255, 0, 127, 0.7)';
-            this.ctx.shadowBlur = 12;
+            if (this.useShadows) {
+                this.ctx.shadowColor = 'rgba(255, 0, 127, 0.7)';
+                this.ctx.shadowBlur = 12;
+            }
 
             // Köşeleri hafif yuvarlatılmış duvar çiz
             this.roundRect(o.x, o.y, o.width, o.height, 6);
@@ -921,8 +943,10 @@ class GravityRunner {
     drawCoin(c) {
         this.ctx.save();
         
-        this.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
-        this.ctx.shadowBlur = 10;
+        if (this.useShadows) {
+            this.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
+            this.ctx.shadowBlur = 10;
+        }
         
         // Altın dış neon halkası
         this.ctx.strokeStyle = '#ffd700';
@@ -977,15 +1001,21 @@ class GravityRunner {
                     // Adım dizinine göre gökkuşağı rengi hesapla
                     const hue = (i * 15) % 360;
                     this.ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
-                    this.ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.4)`;
+                    if (this.useShadows) {
+                        this.ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.4)`;
+                    }
                 } else {
                     // Klasik çizgi: karakter rengi
                     this.ctx.strokeStyle = pl.skinColor;
-                    this.ctx.shadowColor = pl.skinColor;
+                    if (this.useShadows) {
+                        this.ctx.shadowColor = pl.skinColor;
+                    }
                 }
                 
                 this.ctx.lineWidth = 16 * ratio;
-                this.ctx.shadowBlur = 8;
+                if (this.useShadows) {
+                    this.ctx.shadowBlur = 8;
+                }
                 this.ctx.stroke();
             }
         } 
@@ -1043,9 +1073,11 @@ class GravityRunner {
         this.ctx.translate(pl.x + pl.width / 2, pl.y + pl.height / 2);
         this.ctx.rotate(pl.rotation);
 
-        // 1. NEON GLOW/IŞIMA EFEKTİ
-        this.ctx.shadowColor = activeSkin.color;
-        this.ctx.shadowBlur = 14;
+        // 1. NEON GLOW/IŞIMA EFEKTİ (Masaüstünde aktiftir)
+        if (this.useShadows) {
+            this.ctx.shadowColor = activeSkin.color;
+            this.ctx.shadowBlur = 14;
+        }
 
         // 2. DIŞ NEON ZIRH (CYBER GÖVDE)
         this.ctx.fillStyle = '#121424'; // Koyu iç dolgu
@@ -1114,8 +1146,8 @@ class GravityRunner {
             this.ctx.fillStyle = p.color;
             this.ctx.globalAlpha = p.life;
             
-            // Parlama efekti (sadece yüksek ayarlarda)
-            if (this.quality === 'high') {
+            // Parlama efekti (performansı korumak için sadece masaüstü ve yüksek kalitede)
+            if (this.useShadows) {
                 this.ctx.shadowColor = p.color;
                 this.ctx.shadowBlur = 6;
             }
