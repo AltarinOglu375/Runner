@@ -152,6 +152,9 @@ class GravityRunner {
             this.player.isGrounded = false;
             window.gameAudio.playFlip();
             
+            // Çift tıklamalarda ters yöne anında tepki verilmesi için dikey hızı yeni yönün yumuşak ilk hızına eşitliyoruz
+            this.player.vy = this.player.gravityDir * 1.0;
+            
             // Yerçekimi değişiminde patlama parçacıkları oluştur
             this.createFlipBurst();
             
@@ -465,7 +468,7 @@ class GravityRunner {
 
     spawnCoinsArc(startX, gapLength, invert = false) {
         // Hıza bağlı olarak karakterin zıplama (yerçekimi değişimi) yatay mesafesini tam olarak hesapla
-        const estGravity = 0.28 + (this.gameSpeed * 0.06);
+        const estGravity = 0.24 + (this.gameSpeed * 0.05);
         // H = 350px (Zemin 535 ve Tavan 185 arasındaki uçuş mesafesi)
         const estTime = Math.sqrt(2 * 350 / estGravity); 
         const estDist = estTime * this.gameSpeed;
@@ -506,7 +509,7 @@ class GravityRunner {
         this.gameSpeed = this.baseSpeed + Math.min(this.score / 500, 4.0);
 
         // Hıza bağlı olarak yerçekimini güncelle (atlama yayını dengede tutar)
-        this.gravityForce = 0.28 + (this.gameSpeed * 0.06);
+        this.gravityForce = 0.24 + (this.gameSpeed * 0.05);
 
         // Skor (Mesafe) Artışı (hıza bağlı gerçekçi mesafe hesabı)
         this.distanceTimer += this.gameSpeed * 0.018;
@@ -670,14 +673,22 @@ class GravityRunner {
             }
 
             // 3. YAN DUVAR ÇARPIŞMASI (Karakterin platformun sol yan duvarına çarpıp ölmesi)
-            // Delikten düşerken zıplama yapıldığında platformun yan duvarından içeri sızmasını (clipping) engeller
-            if (plRight > pLeft && plLeft < pLeft + 15) {
+            // Düşerken veya deliğe yaklaşırken köşelerden kurtarma payı (forgiving hitbox) tanır.
+            // Yatay ve dikey limitleri daraltarak daha yumuşak/toleranslı bir deneyim sunuyoruz.
+            const wallWidth = 16;
+            const sideBufferX = 12; // Yatayda 12px tolerans
+            const sideBufferY = 20; // Dikeyde 20px kurtarma payı (köşeleri sıyırma toleransı)
+
+            const plSideLeft = pl.x + sideBufferX;
+            const plSideRight = pl.x + pl.width - sideBufferX;
+
+            if (plSideRight > pLeft && plSideLeft < pLeft + wallWidth) {
                 let verticalOverlap = false;
-                if (p.type === 'bottom' && pl.y + pl.height > p.y + 8) {
+                if (p.type === 'bottom' && pl.y + pl.height > p.y + sideBufferY) {
                     verticalOverlap = true;
-                } else if (p.type === 'top' && pl.y < p.y + p.height - 8) {
+                } else if (p.type === 'top' && pl.y < p.y + p.height - sideBufferY) {
                     verticalOverlap = true;
-                } else if (p.type === 'center' && pl.y + pl.height > p.y + 8 && pl.y < p.y + p.height - 8) {
+                } else if (p.type === 'center' && pl.y + pl.height > p.y + sideBufferY && pl.y < p.y + p.height - sideBufferY) {
                     verticalOverlap = true;
                 }
                 
