@@ -21,6 +21,7 @@ class GravityRunner {
             vy: 0,
             gravityDir: 1, // 1: Aşağı, -1: Yukarı
             isGrounded: false,
+            midAirFlipsLeft: 1, // Havadayken yapılabilecek ekstra yerçekimi değişim hakkı
             skinColor: '#00f3ff',
             trailPositions: [],
             rotation: 0
@@ -40,6 +41,16 @@ class GravityRunner {
         this.obstacles = []; // Dikenler ve dikey engeller
         this.coins = [];
         this.particles = [];
+        this.bgLines = [];
+        for (let i = 0; i < 15; i++) {
+            this.bgLines.push({
+                x: Math.random() * this.vWidth,
+                y: this.randomRange(150, 570),
+                length: this.randomRange(30, 80),
+                speedMultiplier: this.randomRange(0.5, 1.1),
+                alpha: this.randomRange(0.015, 0.05)
+            });
+        }
         
         // İlerleme ve Skor
         this.score = 0;
@@ -127,8 +138,16 @@ class GravityRunner {
     handleAction() {
         if (this.state !== 'PLAYING') return;
 
-        // "Bir Ters Bir Düz" kuralı: Sadece platforma temas ederken yerçekimi değiştirilebilir
+        let shouldFlip = false;
+
         if (this.player.isGrounded) {
+            shouldFlip = true;
+        } else if (this.player.midAirFlipsLeft > 0) {
+            shouldFlip = true;
+            this.player.midAirFlipsLeft--; // Havadaki zıplama hakkını kullan
+        }
+
+        if (shouldFlip) {
             this.player.gravityDir *= -1;
             this.player.isGrounded = false;
             window.gameAudio.playFlip();
@@ -172,6 +191,7 @@ class GravityRunner {
         this.player.vy = 0;
         this.player.gravityDir = 1;
         this.player.isGrounded = false;
+        this.player.midAirFlipsLeft = 1; // Başlangıçta havadaki zıplama hakkı dolu
         this.player.skinColor = skin.color;
         this.player.trailPositions = [];
         this.player.rotation = 0;
@@ -406,12 +426,40 @@ class GravityRunner {
         }
     }
 
+    isCoinPositionSafe(x, y) {
+        const coinMinXDist = 95; // Engel ile altın arasındaki güvenli yatay mesafe (piksel cinsinden)
+        
+        for (let i = 0; i < this.obstacles.length; i++) {
+            const o = this.obstacles[i];
+            
+            // Engelin merkezine olan yatay mesafe
+            const dx = Math.abs((o.x + o.width / 2) - x);
+            
+            if (dx < coinMinXDist) {
+                // Dikey çakışma kontrolü
+                // Altının yarıçapı 12. Dikey olarak [y - 15, y + 15] aralığını kapladığını varsayalım.
+                const coinTop = y - 15;
+                const coinBottom = y + 15;
+                const obsTop = o.y;
+                const obsBottom = o.y + o.height;
+                
+                // Eğer dikey olarak çakışıyorlarsa konum güvenli değildir
+                if (coinBottom > obsTop && coinTop < obsBottom) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     spawnCoinsRow(startX, length, yCoord) {
         if (length < 100) return;
         const count = Math.floor(this.randomRange(1, 4));
         for (let i = 0; i < count; i++) {
             const coinX = startX + (length / (count + 1)) * (i + 1);
-            this.coins.push({ x: coinX, y: yCoord, radius: 12, collected: false });
+            if (this.isCoinPositionSafe(coinX, yCoord)) {
+                this.coins.push({ x: coinX, y: yCoord, radius: 12, collected: false });
+            }
         }
     }
 
@@ -436,7 +484,9 @@ class GravityRunner {
             // Fiziğe tam uyumlu parabolik eğri: y = startY + (endY - startY) * ratio^2
             const coinY = startY + (endY - startY) * ratio * ratio;
             
-            this.coins.push({ x: coinX, y: coinY, radius: 12, collected: false });
+            if (this.isCoinPositionSafe(coinX, coinY)) {
+                this.coins.push({ x: coinX, y: coinY, radius: 12, collected: false });
+            }
         }
     }
 
@@ -503,6 +553,17 @@ class GravityRunner {
         this.obstacles.forEach(o => o.x -= this.gameSpeed);
         // Altınları kaydır
         this.coins.forEach(c => c.x -= this.gameSpeed);
+        // Arka plan hız çizgilerini kaydır (oyun hızına göre hareket eder)
+        this.bgLines.forEach(l => {
+            l.x -= this.gameSpeed * l.speedMultiplier * 1.5;
+            if (l.x + l.length < -50) {
+                l.x = this.vWidth + Math.random() * 100;
+                l.y = this.randomRange(150, 570);
+                l.length = this.randomRange(30, 80);
+                l.speedMultiplier = this.randomRange(0.5, 1.1);
+                l.alpha = this.randomRange(0.015, 0.05);
+            }
+        });
 
         // Harita sonu sınırını da sola kaydır (Sonsuz harita döngüsü için kritik!)
         this.lastPlatformX -= this.gameSpeed;
@@ -522,6 +583,11 @@ class GravityRunner {
         this.platforms.forEach(p => {
             this.checkPlatformCollision(p);
         });
+
+        // Eğer karakter zemine/tavana temas ettiyse havadaki takla (yerçekimi çevirme) hakkını yenile
+        if (this.player.isGrounded) {
+            this.player.midAirFlipsLeft = 1;
+        }
 
         // Ekranın en altına veya en üstüne düşme (Boşluğa düşme ölümü)
         if (this.player.y < -150 || this.player.y > this.vHeight + 150) {
@@ -543,7 +609,8 @@ class GravityRunner {
                 c.collected = true;
                 this.runCoins++;
                 window.gameAudio.playCoin(); // Altın sesi
-                this.createCoinSparkle(c.x, c.y);
+                const bob = Math.sin(Date.now() / 300 + c.x * 0.02) * 3;
+                this.createCoinSparkle(c.x, c.y + bob);
                 
                 // HUD güncelle
                 if (window.gameUI && window.gameUI.values.hudCoins) {
@@ -571,7 +638,7 @@ class GravityRunner {
     checkPlatformCollision(p) {
         const pl = this.player;
         
-        // Karakterin çarpışma kutusu (biraz daha daraltılmış, daha adil çarpışmalar için)
+        // Karakterin çarpışma kutusu
         const plLeft = pl.x + 4;
         const plRight = pl.x + pl.width - 4;
         
@@ -581,23 +648,42 @@ class GravityRunner {
 
         // Yatayda örtüşme var mı?
         if (plRight > pLeft && plLeft < pRight) {
-            // YERÇEKİMİ AŞAĞI (Tabana Yapışma)
-            if (pl.gravityDir === 1) {
-                // Karakter platformun üstündeyse ve aşağı düşüyorsa
-                if (pl.vy >= 0 && (pl.y + pl.height) >= p.y && (pl.y + pl.height - pl.vy) <= p.y + 18) {
-                    pl.y = p.y - pl.height;
-                    pl.vy = 0;
-                    pl.isGrounded = true;
+            const pBottom = p.y + p.height;
+            
+            // 1. ÜST YÜZEY ÇARPIŞMASI (Karakter aşağı düşerken platformun üstüne basarsa)
+            if (pl.vy >= 0 && (pl.y + pl.height) >= p.y && (pl.y + pl.height - pl.vy) <= p.y + 18) {
+                pl.y = p.y - pl.height;
+                pl.vy = 0;
+                
+                if (pl.gravityDir === 1) {
+                    pl.isGrounded = true; // Sadece yerçekimi aşağıyken yerde yürüyebilir/hakkını yenileyebilir
                 }
             } 
-            // YERÇEKİMİ YUKARI (Tavana Yapışma)
-            else if (pl.gravityDir === -1) {
-                // Karakter platformun altındaysa ve yukarı çekiliyorsa
-                const pBottom = p.y + p.height;
-                if (pl.vy <= 0 && pl.y <= pBottom && (pl.y - pl.vy) >= pBottom - 18) {
-                    pl.y = pBottom;
-                    pl.vy = 0;
-                    pl.isGrounded = true;
+            // 2. ALT YÜZEY ÇARPIŞMASI (Karakter yukarı çıkarken platformun altına kafasını çarparsa)
+            else if (pl.vy <= 0 && pl.y <= pBottom && (pl.y - pl.vy) >= pBottom - 18) {
+                pl.y = pBottom;
+                pl.vy = 0;
+                
+                if (pl.gravityDir === -1) {
+                    pl.isGrounded = true; // Sadece yerçekimi yukarıyken tavanda yürüyebilir/hakkını yenileyebilir
+                }
+            }
+
+            // 3. YAN DUVAR ÇARPIŞMASI (Karakterin platformun sol yan duvarına çarpıp ölmesi)
+            // Delikten düşerken zıplama yapıldığında platformun yan duvarından içeri sızmasını (clipping) engeller
+            if (plRight > pLeft && plLeft < pLeft + 15) {
+                let verticalOverlap = false;
+                if (p.type === 'bottom' && pl.y + pl.height > p.y + 8) {
+                    verticalOverlap = true;
+                } else if (p.type === 'top' && pl.y < p.y + p.height - 8) {
+                    verticalOverlap = true;
+                } else if (p.type === 'center' && pl.y + pl.height > p.y + 8 && pl.y < p.y + p.height - 8) {
+                    verticalOverlap = true;
+                }
+                
+                if (verticalOverlap) {
+                    this.gameOver();
+                    return;
                 }
             }
         }
@@ -639,9 +725,13 @@ class GravityRunner {
         const px = this.player.x + this.player.width / 2;
         const py = this.player.y + this.player.height / 2;
         
+        // Görsel süzülme (bobbing) yüksekliğini hesapla ve çarpışma dikey koordinatına ekle
+        const bob = Math.sin(Date.now() / 300 + c.x * 0.02) * 3;
+        const cyWithBob = c.y + bob;
+        
         // İki nokta arasındaki mesafe formülü
         const dx = px - c.x;
-        const dy = py - c.y;
+        const dy = py - cyWithBob;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         // Karakter yarıçapı yaklaşık 22px kabul edilirse
@@ -823,6 +913,20 @@ class GravityRunner {
     }
 
     drawBackgroundDecor() {
+        // Arka plan siber hız çizgilerini çiz (oyun ilerledikçe/hızlandıkça uzayan ve parlayan çizgiler)
+        this.ctx.lineWidth = 1.5;
+        this.bgLines.forEach(l => {
+            const speedRatio = (this.gameSpeed - this.baseSpeed) / 4.0; // 0 ile 1 arası
+            const lengthMultiplier = 1 + speedRatio * 2.0; // En fazla 3 kat uzunluk
+            const alphaMultiplier = 1 + speedRatio * 1.5; // En fazla 2.5 kat parlaklık
+            
+            this.ctx.strokeStyle = `rgba(0, 243, 255, ${Math.min(l.alpha * alphaMultiplier, 0.2)})`;
+            this.ctx.beginPath();
+            this.ctx.moveTo(l.x, l.y);
+            this.ctx.lineTo(l.x + l.length * lengthMultiplier, l.y);
+            this.ctx.stroke();
+        });
+
         // İnce ufuk çizgileri veya neon süsler
         this.ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
         this.ctx.lineWidth = 1;
@@ -942,34 +1046,70 @@ class GravityRunner {
 
     drawCoin(c) {
         this.ctx.save();
-        
+
+        // Animasyon hesaplamaları
+        // Dikey süzülme (bobbing) - c.x kullanılarak farklı paraların farklı zamanlamalarda dalgalanması sağlanır
+        const bob = Math.sin(Date.now() / 300 + c.x * 0.02) * 3;
+
+        // Çizim merkezini paranın görsel merkezine taşı ve süzülmeyi uygula
+        this.ctx.translate(c.x, c.y + bob);
+
+        // Neon ışıma (glow) efekti (Yüksek ayarlarda)
         if (this.useShadows) {
-            this.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = '#ffd700';
+            this.ctx.shadowBlur = 12;
         }
-        
-        // Altın dış neon halkası
-        this.ctx.strokeStyle = '#ffd700';
+
+        // Dış neon halkasının degrade (gradient) dolgusu
+        const grad = this.ctx.createRadialGradient(0, 0, c.radius * 0.3, 0, 0, c.radius);
+        grad.addColorStop(0, '#fff5cc');
+        grad.addColorStop(0.5, '#ffd700');
+        grad.addColorStop(1, '#ffaa00');
+
+        // Dış halka çizimi
+        this.ctx.strokeStyle = grad;
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
-        this.ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+        this.ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
         this.ctx.stroke();
 
-        // Altın içi parlaması (yavaşça dönen yarım daire veya küçük çekirdek)
-        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.35)';
+        // Paranın iç yüzey dolgusu (Yarı saydam altın sarısı)
+        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.25)';
         this.ctx.beginPath();
-        this.ctx.arc(c.x, c.y, c.radius - 4, 0, Math.PI * 2);
+        this.ctx.arc(0, 0, c.radius - 3, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // 8-bit parıltı işareti (merkezde '+' işareti)
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 1.5;
+        // İç halka ince detayı
+        this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        this.ctx.lineWidth = 1;
         this.ctx.beginPath();
-        this.ctx.moveTo(c.x - 3, c.y);
-        this.ctx.lineTo(c.x + 3, c.y);
-        this.ctx.moveTo(c.x, c.y - 3);
-        this.ctx.lineTo(c.x, c.y + 3);
+        this.ctx.arc(0, 0, c.radius - 4, 0, Math.PI * 2);
         this.ctx.stroke();
+
+        // Merkezde sabit parlayan yıldız detayı
+        this.ctx.fillStyle = '#ffffff';
+        if (this.useShadows) {
+            this.ctx.shadowColor = '#ffffff';
+            this.ctx.shadowBlur = 8;
+        }
+
+        // 8 köşeli şık parıltı yıldızı
+        this.ctx.beginPath();
+        const rInner = 3;
+        const rOuter = 7;
+        for (let i = 0; i < 8; i++) {
+            const r = (i % 2 === 0) ? rOuter : rInner;
+            const theta = (i * Math.PI) / 4;
+            this.ctx.lineTo(Math.cos(theta) * r, Math.sin(theta) * r);
+        }
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // En merkezdeki parlayan çekirdek nokta
+        this.ctx.fillStyle = '#ffd700';
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        this.ctx.fill();
 
         this.ctx.restore();
     }
